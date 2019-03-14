@@ -1,5 +1,6 @@
 import logging
 
+from django.core.exceptions import SuspiciousOperation
 from django.db import transaction
 from django.http import (
     HttpResponseBadRequest, HttpResponseRedirect, HttpResponse,
@@ -100,6 +101,12 @@ class OrderReturnView(UpdateOrderMixin, View):
         # won't wait for Docdata to call our update API.
         with transaction.atomic():
             self.order = self.get_order(order_key)   # this is the docdata id.
+
+            if self.order.status != DocdataOrder.STATUS_NEW:
+                # Don't request DocData for a update if order is not "new"
+                # see: https://github.com/django-oscar/django-oscar-docdata/issues/51
+                raise SuspiciousOperation("Wrong order status")
+
             self.update_order(self.order)
 
         # Allow other code to perform actions, e.g. send a confirmation email.
